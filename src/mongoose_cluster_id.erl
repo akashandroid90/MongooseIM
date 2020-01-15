@@ -1,4 +1,5 @@
 -module(mongoose_cluster_id).
+-compile([export_all]).
 
 -include("mongoose.hrl").
 
@@ -13,9 +14,9 @@
 -record(mongoose_cluster_id, {key :: atom(), value :: cluster_id()}).
 -type cluster_id() :: binary().
 -type mongoose_backend() :: rdbms
-                          | cassandra
-                          | elasticsearch
-                          | riak
+                          % | cassandra
+                          % | elasticsearch
+                          % | riak
                           | mnesia.
 
 -spec start() -> ok | {error, any()}.
@@ -93,9 +94,9 @@ make_cluster_id() ->
 which_backend_available() ->
     try
         is_rdbms_enabled() andalso throw({backend, rdbms}),
-        is_cassandra_enabled() andalso throw({backend, cassandra}),
-        is_elasticsearch_enabled() andalso throw({backend, elasticsearch}),
-        is_riak_enabled() andalso throw({backend, riak}),
+        % is_cassandra_enabled() andalso throw({backend, cassandra}),
+        % is_elasticsearch_enabled() andalso throw({backend, elasticsearch}),
+        % is_riak_enabled() andalso throw({backend, riak}),
         mnesia
     catch
         {backend, B} -> B
@@ -103,18 +104,18 @@ which_backend_available() ->
 
 is_rdbms_enabled() ->
     mongoose_rdbms:db_engine(<<>>) =/= undefined.
-is_cassandra_enabled() ->
-    mongoose_wpool:is_configured(cassandra).
-is_elasticsearch_enabled() ->
-    case catch mongoose_elasticsearch:health() of
-        {ok, _} -> true;
-        _ -> false
-    end.
-is_riak_enabled() ->
-    case catch mongoose_riak:list_buckets(<<"default">>) of
-        {ok, '_'} -> true;
-        _ -> false
-    end.
+% is_cassandra_enabled() ->
+    % mongoose_wpool:is_configured(cassandra).
+% is_elasticsearch_enabled() ->
+    % case catch mongoose_elasticsearch:health() of
+        % {ok, _} -> true;
+        % _ -> false
+    % end.
+% is_riak_enabled() ->
+    % case catch mongoose_riak:list_buckets(<<"default">>) of
+        % {ok, '_'} -> true;
+        % _ -> false
+    % end.
 
 %% Set cluster ID
 -spec set_new_cluster_id(cluster_id()) -> ok | {error, binary()}.
@@ -135,12 +136,12 @@ set_new_cluster_id(ID, rdbms) ->
                          [E, R, Stack]),
             {error, {E,R}}
     end;
-set_new_cluster_id(_ID, cassandra) ->
-    ok;
-set_new_cluster_id(_ID, elasticsearch) ->
-    ok;
-set_new_cluster_id(_ID, riak) ->
-    ok;
+% set_new_cluster_id(_ID, cassandra) ->
+%     ok;
+% set_new_cluster_id(_ID, elasticsearch) ->
+%     ok;
+% set_new_cluster_id(_ID, riak) ->
+%     ok;
 set_new_cluster_id(ID, mnesia) ->
     cache_cluster_id(ID).
 
@@ -148,7 +149,7 @@ set_new_cluster_id(ID, mnesia) ->
 -spec get_cluster_id_from_backend(mongoose_backend()) ->
     {ok, cluster_id()} | {error, binary()}.
 get_cluster_id_from_backend(rdbms) ->
-    SQLQuery = [<<"SELECT value FROM mongoose_cluster_id LIMIT 1">>],
+    SQLQuery = [<<"SELECT value FROM mongoose_cluster_id WHERE \"key\"=\"cluster_id\" LIMIT 1">>],
     try mongoose_rdbms:sql_query(?MYNAME, SQLQuery) of
         {selected, [{Row}]} -> {ok, Row};
         {selected, []} -> {error, no_value};
@@ -159,12 +160,12 @@ get_cluster_id_from_backend(rdbms) ->
                          [E, R, Stack]),
             {error, <<>>}
     end;
-get_cluster_id_from_backend(cassandra) ->
-    {ok, <<>>};
-get_cluster_id_from_backend(elasticsearch) ->
-    {ok, <<>>};
-get_cluster_id_from_backend(riak) ->
-    {ok, <<>>};
+% get_cluster_id_from_backend(cassandra) ->
+%     {ok, <<>>};
+% get_cluster_id_from_backend(elasticsearch) ->
+%     {ok, <<>>};
+% get_cluster_id_from_backend(riak) ->
+%     {ok, <<>>};
 get_cluster_id_from_backend(mnesia) ->
     get_cluster_id().
 

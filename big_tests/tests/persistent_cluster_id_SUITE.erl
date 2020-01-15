@@ -1,6 +1,7 @@
 -module(persistent_cluster_id_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 %% API
 -export([all/0,
@@ -16,7 +17,8 @@
 
 %% test cases
 -export([
-         all_clustered_mongooses_report_the_same_client_id/1
+         all_nodes_in_the_cluster_have_the_same_cluster_id/1,
+         id_persists_after_restart/1
         ]).
 
 all() ->
@@ -27,7 +29,8 @@ all() ->
 
 tests() ->
     [
-     all_clustered_mongooses_report_the_same_client_id
+     all_nodes_in_the_cluster_have_the_same_cluster_id,
+     id_persists_after_restart
     ].
 
 suite() ->
@@ -71,13 +74,13 @@ end_per_group(_Groupname, _Config) ->
 %%%===================================================================
 %%% Testcase specific setup/teardown
 %%%===================================================================
-init_per_testcase(all_clustered_mongooses_report_the_same_client_id, Config) ->
+init_per_testcase(all_nodes_in_the_cluster_have_the_same_cluster_id, Config) ->
     distributed_helper:add_node_to_cluster(distributed_helper:mim2(), Config),
     Config;
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-end_per_testcase(all_clustered_mongooses_report_the_same_client_id, Config) ->
+end_per_testcase(all_nodes_in_the_cluster_have_the_same_cluster_id, Config) ->
     distributed_helper:remove_node_from_cluster(distributed_helper:mim2(), Config),
     Config;
 end_per_testcase(_TestCase, _Config) ->
@@ -86,7 +89,7 @@ end_per_testcase(_TestCase, _Config) ->
 %%%===================================================================
 %%% Individual Test Cases (from groups() definition)
 %%%===================================================================
-all_clustered_mongooses_report_the_same_client_id(_Config) ->
+all_nodes_in_the_cluster_have_the_same_cluster_id(_Config) ->
     {ok, ID_mim1} = mongoose_helper:successful_rpc(
                distributed_helper:mim(),
                mongoose_cluster_id, get_cluster_id, []),
@@ -95,7 +98,17 @@ all_clustered_mongooses_report_the_same_client_id(_Config) ->
                mongoose_cluster_id, get_cluster_id, []),
     ct:log("ID for mim1 is ~p~n", [ID_mim1]),
     ct:log("ID for mim2 is ~p~n", [ID_mim2]),
-    ID_mim1 = ID_mim2.
+    ?assertEqual(ID_mim1, ID_mim2).
+
+id_persists_after_restart(_Config) ->
+    {ok, FirstID} = mongoose_helper:successful_rpc(
+               distributed_helper:mim(),
+               mongoose_cluster_id, get_cluster_id, []),
+    ejabberd_node_utils:restart_application(mongooseim),
+    {ok, SecondID} = mongoose_helper:successful_rpc(
+               distributed_helper:mim(),
+               mongoose_cluster_id, get_cluster_id, []),
+    ?assertEqual(FirstID, SecondID).
 
 domain() ->
     ct:get_config({hosts, mim, domain}).
