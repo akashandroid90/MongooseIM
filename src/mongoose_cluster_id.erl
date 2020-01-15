@@ -114,15 +114,17 @@ set_new_cluster_id(ID) ->
 
 -spec set_new_cluster_id(cluster_id(), mongoose_backend()) -> ok | {error, binary()}.
 set_new_cluster_id(ID, rdbms) ->
-    SQLQuery = [<<"INSERT INTO mongoose_cluster_id VALUE", ID/binary>>],
+    SQLQuery = [<<"INSERT INTO mongoose_cluster_id(key,value) "
+                  "VALUES (\'cluster_id\',">>,
+                mongoose_rdbms:use_escaped(mongoose_rdbms:escape_string(ID)), ");"],
     try mongoose_rdbms:sql_query(?MYNAME, SQLQuery) of
-        {selected, [Row]} -> {ok, Row};
+        {updated, 1} -> ok;
         {error, _} = Err -> Err
     catch
         E:R:Stack ->
             ?WARNING_MSG("issue=error_reading_cluster_id_from_rdbms, class=~p, reason=~p, stack=~p",
                          [E, R, Stack]),
-            {error, <<>>}
+            {error, {E,R}}
     end;
 set_new_cluster_id(_ID, cassandra) ->
     ok;
@@ -137,9 +139,10 @@ set_new_cluster_id(ID, mnesia) ->
 -spec get_cluster_id_from_backend(mongoose_backend()) ->
     {ok, cluster_id()} | {error, binary()}.
 get_cluster_id_from_backend(rdbms) ->
-    SQLQuery = [<<"SELECT id FROM mongoose_cluster_id LIMIT 1">>],
+    SQLQuery = [<<"SELECT value FROM mongoose_cluster_id LIMIT 1">>],
     try mongoose_rdbms:sql_query(?MYNAME, SQLQuery) of
-        {selected, [Row]} -> {ok, Row};
+        {selected, [{Row}]} -> {ok, Row};
+        {selected, []} -> {error, no_value};
         {error, _} = Err -> Err
     catch
         E:R:Stack ->

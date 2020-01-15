@@ -611,3 +611,8 @@ ALTER TABLE [dbo].[vcard_search] ADD  DEFAULT (N'') FOR [lusername]
 GO
 ALTER TABLE [dbo].[vcard_search] ADD  DEFAULT (N'') FOR [server]
 GO
+
+CREATE TABLE mongoose_cluster_id (
+    key varchar unique NOT NULL, /* always cluster_id */
+    value varchar
+);
