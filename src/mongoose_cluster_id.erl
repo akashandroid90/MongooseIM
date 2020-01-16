@@ -21,20 +21,21 @@
 -spec start() -> ok | {error, any()}.
 start() ->
     init_mnesia_cache(),
-    case get_cluster_id() of
-        {error, _} ->
-            case get_backend_cluster_id() of
-                {error, _} ->
-                    NewID = make_cluster_id(),
-                    case set_new_cluster_id(NewID) of
-                        {error, _} = Err -> Err;
-                        ok -> cache_cluster_id(NewID)
-                    end;
-                {ok, ID} when is_binary(ID) ->
-                    cache_cluster_id(ID)
-            end;
-        {ok, ID} when is_binary(ID) -> ok
-    end.
+    run_monad(
+     [fun get_cluster_id/0,
+      fun get_backend_cluster_id/0,
+      fun make_and_set_new_cluster_id/0]).
+
+run_monad(Funs) ->
+    run_monad(Funs, undefined).
+
+run_monad([Fun | NextFuns], undefined) ->
+    run_monad(NextFuns, Fun());
+run_monad([Fun | NextFuns], {error, _} = Error) ->
+    ?WARNING_MSG("mongoose_cluster_id:start/0 failed with error ~p", [Error]),
+    run_monad(NextFuns, Fun());
+run_monad(_, {ok, ID}) when is_binary(ID) ->
+    ok.
 
 %% Get cached version
 -spec get_cluster_id() -> {ok, cluster_id()} | {error, any()}.
@@ -52,6 +53,14 @@ get_cluster_id() ->
 -spec get_backend_cluster_id() -> {ok, cluster_id()} | {error, any()}.
 get_backend_cluster_id() ->
     get_cluster_id_from_backend(which_backend_available()).
+
+-spec make_and_set_new_cluster_id() -> {ok, cluster_id()} | {error, any()}.
+make_and_set_new_cluster_id() ->
+    NewID = make_cluster_id(),
+    case set_new_cluster_id(NewID) of
+        {error, _} = Err -> Err;
+        ok -> cache_cluster_id(NewID), {ok, NewID}
+    end.
 
 %% ====================================================================
 %% Internal functions
